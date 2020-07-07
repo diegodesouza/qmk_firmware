@@ -57,7 +57,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
     KC_LSFT,  KC_NO,   KC_NO,   KC_NO,   KC_NO,   KC_NO,                        KC_NO,   KC_NO,   KC_NO,  KC_NO,   KC_NO,   KC_NO,  \
 //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-                                          KC_LCTL, KC_LALT, KC_LGUI,    KC_ENT, KC_SPC, KC_RALT),\
+                                          KC_TRNS, KC_TRNS, KC_TRNS,    KC_ENT, KC_SPC, KC_RALT),\
 //                                      `--------------------------'  `--------------------------'
 
 
@@ -91,7 +91,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
    KC_TRNS,  KC_TRNS,  KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                      KC_NO,   KC_P1,   KC_P2,   KC_P3,   KC_PEQL, KC_NO,   \
 //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-                                            KC_NO, KC_NO, KC_NO,          KC_NO, KC_P0, KC_NO), \
+                                          KC_TRNS, KC_TRNS, KC_TRNS,       KC_NO, KC_P0, KC_NO), \
 //                                      `--------------------------'  `--------------------------'
 
 [_ADJUST] = LAYOUT( \
@@ -102,7 +102,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
     KC_NO,   KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS,                      KC_NO,   KC_NO,    RGB_M_SN, RGB_M_K, RGB_M_X, RGB_M_G,\
 //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-                                            KC_NO, KC_NO, KC_NO,         KC_NO, KC_NO, KC_NO)
+                                          KC_TRNS, KC_TRNS, KC_TRNS,       KC_NO, KC_NO, KC_NO)
 //                                      `--------------------------'  `--------------------------'
 };
 
@@ -120,16 +120,6 @@ void update_tri_layer_RGB(uint8_t layer1, uint8_t layer2, uint8_t layer3) {
   } else {
     layer_off(layer3);
   }
-}
-
-void matrix_init_user(void) {
-    #ifdef RGBLIGHT_ENABLE
-      RGB_current_mode = rgblight_config.mode;
-    #endif
-    //SSD1306 OLED init, make sure to add #define SSD1306OLED in config.h
-    #ifdef SSD1306OLED
-        iota_gfx_init(!has_usb());   // turns on the display
-    #endif
 }
 
 //SSD1306 OLED update loop, make sure to add #define SSD1306OLED in config.h
@@ -239,4 +229,75 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       break;
   }
   return true;
+}
+
+uint8_t prev = _QWERTY;
+uint32_t desired = 1;
+uint16_t hue = 120;
+uint16_t sat = 255;
+uint16_t val = 255;
+
+void get_hsv(void) {
+	hue = rgblight_get_hue();
+	sat = rgblight_get_sat();
+	val = rgblight_get_val();
+}
+
+void reset_hsv(void) {
+	rgblight_sethsv(hue, sat, val);
+}
+
+void matrix_init_user(void) {
+    #ifdef RGBLIGHT_ENABLE
+      RGB_current_mode = rgblight_config.mode;
+    #endif
+    //SSD1306 OLED init, make sure to add #define SSD1306OLED in config.h
+    #ifdef SSD1306OLED
+        iota_gfx_init(!has_usb());   // turns on the display
+    #endif
+
+	rgblight_mode(desired);
+	rgblight_enable();
+	reset_hsv();
+}
+
+uint32_t layer_state_set_user(uint32_t state) {
+  uint8_t layer = biton32(state);
+  if (prev!=_ADJUST) {
+	  switch (layer) {
+		case _QWERTY:
+		  rgblight_mode(desired);
+		  if(desired < 6 || (desired > 14 && desired < 25)) { // Skip in rainbow modes.
+			reset_hsv();
+		  }
+		  break;
+
+		case _LOWER:
+		  rgblight_mode(5);
+//		  rgblight_sethsv(0, 255, 255);
+		  break;
+
+		case _RAISE:
+		  rgblight_mode(19);
+//		  rgblight_sethsv(240, 255, 255);
+		  break;
+
+		case _NUMBER:
+		  rgblight_mode(4);
+//		  rgblight_sethsv(230, 250, 255);
+		  break;
+
+		case _MOUSE:
+		  rgblight_mode(3);
+//		  rgblight_sethsv(220, 220, 255);
+		  break;
+		case _ADJUST:
+		  break;
+	  }
+  } else {
+	  desired = rgblight_get_mode();
+	  get_hsv();
+  }
+  prev = layer;
+  return state;
 }
